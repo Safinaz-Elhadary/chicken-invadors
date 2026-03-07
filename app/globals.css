@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+:root {
+  --background: #03090e;
+  --foreground: #f3fbff;
+  --panel: rgba(27, 112, 214, 0.88);
+  --panel-border: rgba(255, 255, 255, 0.22);
+  --muted: rgba(243, 250, 255, 0.88);
+  --accent: #fff087;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), sans-serif;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at top, rgba(89, 197, 255, 0.24), transparent 40%),
+    linear-gradient(180deg, #08131b 0%, #02070b 100%);
+}
+
+.camera-feed {
+  position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.overlay {
+  position: absolute;
+  z-index: 2;
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, rgba(27, 112, 214, 0.82), rgba(122, 197, 255, 0.58));
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  color: var(--accent);
+}
+
+.panel-copy,
+.tracker-copy,
+.stat-label {
+  margin: 0;
+  color: var(--muted);
+}
+
+.status-pill {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  width: fit-content;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.error-copy {
+  margin: 0;
+  color: #ff9aa6;
+}
+
+.launch-panel {
+  top: 50%;
+  left: 32px;
+  width: min(430px, calc(100vw - 64px));
+  padding: 24px;
+  border-radius: 30px;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 16px;
+  z-index: 3;
+  background:
+    radial-gradient(circle at top left, rgba(255, 246, 176, 0.7), transparent 32%),
+    linear-gradient(155deg, rgba(64, 141, 242, 0.95), rgba(255, 170, 72, 0.9));
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  box-shadow: 0 22px 48px rgba(17, 52, 119, 0.32);
+}
+
+.launch-panel h1 {
+  margin: -4px 0 0;
+  font-size: clamp(2.6rem, 5vw, 4.2rem);
+  line-height: 0.9;
+  text-wrap: balance;
+}
+
+.launch-copy {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.96);
+  line-height: 1.5;
+  font-size: 1.05rem;
+  max-width: 48ch;
+}
+
+.launch-badges {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.launch-badge {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.launch-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.launch-status,
+.status-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hud-panel {
+  top: 22px;
+  padding: 14px 16px;
+  border-radius: 24px;
+}
+
+.hud-panel-left {
+  left: 22px;
+  width: min(360px, calc(100vw - 44px));
+}
+
+.hud-panel-right {
+  right: 22px;
+  width: min(420px, calc(100vw - 44px));
+  display: grid;
+  gap: 12px;
+}
+
+.hud-stats {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hud-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stat-value {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.launch-actions button,
+.hud-actions button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  min-width: 132px;
+  background: linear-gradient(135deg, #fff089 0%, #6be0ff 100%);
+  color: #0e315d;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+  box-shadow: 0 10px 20px rgba(31, 83, 170, 0.2);
+}
+
+.launch-actions button.secondary,
+.hud-actions button.secondary {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.launch-actions button:disabled,
+.hud-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.launch-actions button:hover,
+.hud-actions button:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 920px) {
+  .hud-panel-left {
+    left: 16px;
+  }
+
+  .hud-panel-right {
+    right: 16px;
+    top: auto;
+    bottom: 132px;
+  }
+
+  .hud-panel-left,
+  .hud-panel-right {
+    width: min(calc(100vw - 32px), 100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .launch-panel {
+    left: 14px;
+    width: min(calc(100vw - 28px), 100%);
+    padding: 20px 18px;
+    transform: translateY(-50%);
+  }
+
+  .hud-panel-left,
+  .hud-panel-right {
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  .hud-panel-left {
+    top: 14px;
+    padding: 14px 16px;
+  }
+
+  .hud-panel-right {
+    top: auto;
+    bottom: 140px;
+    padding: 14px 16px;
+  }
+
+  .hud-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .launch-actions,
+  .hud-actions {
+    flex-direction: column;
+  }
+
+  .launch-actions button,
+  .hud-actions button {
+    width: 100%;
+  }
+}
