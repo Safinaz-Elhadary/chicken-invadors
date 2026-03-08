@@ -111,3 +111,31 @@ Original prompt: build me a guitar hero like game where there is a song playing 
 - Cleanup pass removed the large decorative guitar-body shape from the bottom-left of the gameplay canvas because it was not interactive and cluttered the stage.
 - `develop-web-game` validation after the cleanup:
   - Gameplay screenshot: `output/web-game/remove-guitar-body-play.png`
+- Added Gemini/Lyria song generation so the player can build a new rhythm-game track before starting:
+  - new server route at `app/api/generate-song/route.ts` streams `models/lyria-realtime-exp`
+  - the route constrains prompts toward beat-heavy, instrumental, chart-friendly music instead of soft acoustic tracks
+  - accepts a compact Suno-style prompt builder: style, mood, energy, beat, and extra idea text
+- Refactored the client song pipeline to support a current song asset instead of a fixed MP3:
+  - generated Lyria WAV blobs now replace the backing track and feed the same beat-analysis/chart path as the sample song
+  - intro UI now shows the current track title/summary and uses one main action: make song and start camera
+  - server reads the existing `.env` key name `Gemini_API_Key`
+- Validation for the Lyria generation pass:
+  - Intro UI screenshot: `output/web-game/lyria-intro-ui.png`
+  - End-to-end Playwright run with fake camera stream reached live gameplay using a generated song:
+    - Screenshot: `output/web-game/lryia-generated-play.png`
+    - Final state included `songTitle: "Happy Dance Pop"`, `songBpm: 118`, `cameraState: "ready"`, `trackerStatus: "ready"`
+- `npm run lint` passes after the Lyria integration.
+- `npm run build` passes after the Lyria integration.
+- Form-input fix pass:
+  - global keyboard shortcuts now ignore focused `input`, `textarea`, `select`, and contenteditable elements so typing spaces and letters in the song form works normally
+  - song form CSS now forces labels and controls to render as stacked block elements more reliably
+  - verification screenshot: `output/web-game/fixed-idea-box.png`
+- Swapped the song generator architecture to Gemini lyrics planning + ElevenLabs Music composition:
+  - `app/api/generate-song/route.ts` now asks Gemini for a structured song plan with lyrics and section timing
+  - the client now expects JSON with `audioBase64`, `lyrics`, and metadata, and shows lyric preview lines in the launch card
+- Direct route verification found the integration blocker is now account permissions, not request shape:
+  - ElevenLabs accepted the endpoint path after request-shape fixes
+  - current `.env` key fails with `missing_permissions` for `music_generation`
+  - route now surfaces a clear error message telling the user the ElevenLabs account/key needs Music API access
+- `npm run lint` passes after the Gemini + ElevenLabs route change.
+- `npm run build` passes after the Gemini + ElevenLabs route change.

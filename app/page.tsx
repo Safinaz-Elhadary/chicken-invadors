@@ -35,6 +35,24 @@ type SongChart = {
   events: SongEvent[];
 };
 
+type SongAsset = {
+  key: string;
+  title: string;
+  src: string;
+  summary: string;
+  lyrics: string[];
+  bpmHint?: number;
+  generated: boolean;
+};
+
+type SongFormState = {
+  style: "dance-pop" | "electro-rock" | "arcade-funk" | "power-pop";
+  mood: "happy" | "epic" | "space" | "bold";
+  energy: "medium" | "high";
+  beat: "steady" | "bouncy" | "turbo";
+  details: string;
+};
+
 type Flash = {
   lane: number;
   ttl: number;
@@ -115,6 +133,43 @@ const KEY_TO_LANE: Record<string, number> = {
   d: 2,
   f: 3,
 };
+const DEFAULT_SONG_ASSET: SongAsset = {
+  key: "provided-sample",
+  title: PROVIDED_SONG_TITLE,
+  src: PROVIDED_SONG_PATH,
+  summary: "Sample beat",
+  lyrics: [],
+  bpmHint: 100,
+  generated: false,
+};
+const DEFAULT_SONG_FORM: SongFormState = {
+  style: "dance-pop",
+  mood: "happy",
+  energy: "medium",
+  beat: "steady",
+  details: "",
+};
+const STYLE_OPTIONS = [
+  { value: "dance-pop", label: "Dance Pop" },
+  { value: "electro-rock", label: "Electro Rock" },
+  { value: "arcade-funk", label: "Arcade Funk" },
+  { value: "power-pop", label: "Power Pop" },
+] as const;
+const MOOD_OPTIONS = [
+  { value: "happy", label: "Happy" },
+  { value: "epic", label: "Epic" },
+  { value: "space", label: "Space" },
+  { value: "bold", label: "Bold" },
+] as const;
+const ENERGY_OPTIONS = [
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+] as const;
+const BEAT_OPTIONS = [
+  { value: "steady", label: "Steady" },
+  { value: "bouncy", label: "Bouncy" },
+  { value: "turbo", label: "Turbo" },
+] as const;
 
 const CHORD_LIBRARY = [
   [196, 246.94, 293.66],
@@ -299,7 +354,7 @@ function nearestPeakDistance(time: number, peaks: Array<{ time: number; energy: 
   return bestDistance;
 }
 
-function buildSongChartFromAudioBuffer(buffer: AudioBuffer): SongChart {
+function buildSongChartFromAudioBuffer(buffer: AudioBuffer, title = PROVIDED_SONG_TITLE): SongChart {
   const sampleRate = buffer.sampleRate;
   const channelCount = buffer.numberOfChannels;
   const channels = Array.from({ length: channelCount }, (_, index) =>
@@ -426,7 +481,7 @@ function buildSongChartFromAudioBuffer(buffer: AudioBuffer): SongChart {
   }
 
   return {
-    title: PROVIDED_SONG_TITLE,
+    title,
     bpm,
     beatSeconds,
     totalTime: SONG_LEAD_IN + buffer.duration + 1.5,
@@ -535,7 +590,7 @@ function createGameState(song: SongChart = createPreviewSongChart()): GameState 
     multiplier: 1,
     flash: null,
     celebrationNotes: [],
-    message: "Use the launch panel to start camera mode or fallback mode.",
+    message: "Create a beat and start the camera game.",
     nextSongEventIndex: 0,
   };
 }
@@ -628,6 +683,22 @@ function makeMotionCanvas() {
   return canvas;
 }
 
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -637,8 +708,11 @@ export default function Home() {
   const audioRef = useRef<AudioRig | null>(null);
   const songAudioRef = useRef<HTMLAudioElement | null>(null);
   const songDuckTimeoutRef = useRef<number | null>(null);
-  const loadedSongRef = useRef<SongChart | null>(null);
-  const songChartPromiseRef = useRef<Promise<SongChart> | null>(null);
+  const currentSongAssetRef = useRef<SongAsset>(DEFAULT_SONG_ASSET);
+  const loadedSongRef = useRef<{ key: string; chart: SongChart } | null>(null);
+  const songChartPromiseRef = useRef<{ key: string; promise: Promise<SongChart> } | null>(null);
+  const generatedSongUrlRef = useRef<string | null>(null);
+  const generatedSongSignatureRef = useRef<string | null>(null);
   const songPlaybackRequestedRef = useRef(false);
   const handLandmarkerRef = useRef<HandLandmarkerLike | null>(null);
   const motionCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -664,10 +738,16 @@ export default function Home() {
   const [cameraControlMode, setCameraControlMode] =
     useState<CameraControlMode>("none");
   const [trackerMessage, setTrackerMessage] = useState(
-    "Start camera mode to use hand tracking. Motion fallback is built in if landmarks are unavailable.",
+    "Make a song, then move your hand to play it.",
   );
   const [setupError, setSetupError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isGeneratingSong, setIsGeneratingSong] = useState(false);
+  const [songGenerationError, setSongGenerationError] = useState<string | null>(null);
+  const [songForm, setSongForm] = useState<SongFormState>(DEFAULT_SONG_FORM);
+  const [currentSongLabel, setCurrentSongLabel] = useState(DEFAULT_SONG_ASSET.title);
+  const [currentSongSummary, setCurrentSongSummary] = useState(DEFAULT_SONG_ASSET.summary);
+  const [currentSongLyrics, setCurrentSongLyrics] = useState<string[]>(DEFAULT_SONG_ASSET.lyrics);
   const [hudTick, setHudTick] = useState(0);
 
   useEffect(() => {
@@ -676,6 +756,14 @@ export default function Home() {
     }, 120);
 
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (generatedSongUrlRef.current) {
+        URL.revokeObjectURL(generatedSongUrlRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -716,11 +804,48 @@ export default function Home() {
     return audioRef.current;
   };
 
+  const getCurrentSongAsset = () => currentSongAssetRef.current;
+
+  const setCurrentSongAsset = (asset: SongAsset) => {
+    const previousGeneratedUrl = generatedSongUrlRef.current;
+    const previousAsset = currentSongAssetRef.current;
+
+    currentSongAssetRef.current = asset;
+    setCurrentSongLabel(asset.title);
+    setCurrentSongSummary(asset.summary);
+    setCurrentSongLyrics(asset.lyrics);
+    loadedSongRef.current = null;
+    songChartPromiseRef.current = null;
+    stopSongPlayback();
+
+    if (songAudioRef.current) {
+      songAudioRef.current.pause();
+      songAudioRef.current.src = "";
+      songAudioRef.current = null;
+    }
+
+    if (
+      previousGeneratedUrl &&
+      previousGeneratedUrl !== asset.src &&
+      previousAsset.generated
+    ) {
+      URL.revokeObjectURL(previousGeneratedUrl);
+      generatedSongUrlRef.current = null;
+    }
+
+    if (asset.generated) {
+      generatedSongUrlRef.current = asset.src;
+    }
+  };
+
   const ensureSongAudio = async () => {
-    if (!songAudioRef.current) {
-      const audio = new Audio(PROVIDED_SONG_PATH);
+    const asset = getCurrentSongAsset();
+
+    if (!songAudioRef.current || songAudioRef.current.dataset.songKey !== asset.key) {
+      const audio = new Audio(asset.src);
       audio.preload = "auto";
       audio.setAttribute("playsinline", "true");
+      audio.dataset.songKey = asset.key;
       songAudioRef.current = audio;
     }
 
@@ -756,37 +881,45 @@ export default function Home() {
     return audio;
   };
 
-  const loadProvidedSongChart = async () => {
-    if (loadedSongRef.current) {
-      return loadedSongRef.current;
+  const loadCurrentSongChart = async () => {
+    const asset = getCurrentSongAsset();
+
+    if (loadedSongRef.current?.key === asset.key) {
+      return loadedSongRef.current.chart;
     }
 
-    if (!songChartPromiseRef.current) {
-      songChartPromiseRef.current = (async () => {
+    if (songChartPromiseRef.current?.key !== asset.key) {
+      songChartPromiseRef.current = {
+        key: asset.key,
+        promise: (async () => {
         try {
           const audio = await ensureSongAudio();
           const ownsContext = !audioRef.current;
           const context = audioRef.current?.ctx ?? new window.AudioContext();
-          const response = await fetch(PROVIDED_SONG_PATH);
+          const response = await fetch(asset.src);
           const data = await response.arrayBuffer();
           const buffer = await context.decodeAudioData(data.slice(0));
-          const chart = buildSongChartFromAudioBuffer(buffer);
+          const chart = buildSongChartFromAudioBuffer(buffer, asset.title);
+          chart.title = asset.title;
+          chart.bpm = asset.bpmHint ?? chart.bpm;
           chart.totalTime = SONG_LEAD_IN + (audio.duration || buffer.duration) + 1.5;
           if (ownsContext) {
             void context.close();
           }
-          loadedSongRef.current = chart;
+          loadedSongRef.current = { key: asset.key, chart };
           return chart;
         } catch {
           const fallback = createSongChart(1337);
-          fallback.title = PROVIDED_SONG_TITLE;
-          loadedSongRef.current = fallback;
+          fallback.title = asset.title;
+          fallback.bpm = asset.bpmHint ?? fallback.bpm;
+          loadedSongRef.current = { key: asset.key, chart: fallback };
           return fallback;
         }
-      })();
+      })(),
+      };
     }
 
-    return songChartPromiseRef.current;
+    return songChartPromiseRef.current.promise;
   };
 
   const stopSongPlayback = () => {
@@ -805,6 +938,84 @@ export default function Home() {
     audio.pause();
     audio.currentTime = 0;
     audio.volume = 0.64;
+  };
+
+  const updateSongForm = <K extends keyof SongFormState>(key: K, value: SongFormState[K]) => {
+    setSongForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const generateSongAsset = async () => {
+    setSongGenerationError(null);
+    setIsGeneratingSong(true);
+
+    try {
+      const response = await fetch("/api/generate-song", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(songForm),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Song generation failed.");
+      }
+
+      const payload = (await response.json()) as {
+        title?: string;
+        bpm?: number;
+        summary?: string;
+        mimeType?: string;
+        audioBase64?: string;
+        lyrics?: string[];
+      };
+
+      if (!payload.audioBase64) {
+        throw new Error("Generated song response did not include audio.");
+      }
+
+      const mimeType = payload.mimeType || "audio/mpeg";
+      const binary = atob(payload.audioBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      const blob = new Blob([bytes], { type: mimeType });
+      const title = payload.title || "Gemini Star Beat";
+      const bpmHint = Number(payload.bpm ?? 120);
+      const summary = payload.summary || "Fresh song";
+      const objectUrl = URL.createObjectURL(blob);
+      const asset: SongAsset = {
+        key: `generated-${Date.now()}`,
+        title,
+        src: objectUrl,
+        summary,
+        lyrics: payload.lyrics ?? [],
+        bpmHint,
+        generated: true,
+      };
+
+      setCurrentSongAsset(asset);
+      generatedSongSignatureRef.current = JSON.stringify(songForm);
+      const chart = await loadCurrentSongChart();
+      if (gameStateRef.current.mode === "intro") {
+        gameStateRef.current = createGameState(chart);
+        gameStateRef.current.message = `${asset.title} is ready. Start the camera game.`;
+        drawScene();
+      }
+      return asset;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Song generation failed.";
+      setSongGenerationError(message);
+      throw error;
+    } finally {
+      setIsGeneratingSong(false);
+    }
   };
 
   const playVoice = (
@@ -1519,7 +1730,7 @@ export default function Home() {
 
   const resetGame = async (message: string) => {
     await ensureAudio();
-    const song = await loadProvidedSongChart();
+    const song = await loadCurrentSongChart();
     const songAudio = await ensureSongAudio();
     songAudio.volume = 0.64;
     try {
@@ -1666,7 +1877,7 @@ export default function Home() {
 
       await resetGame(
         handLandmarkerRef.current
-          ? "Play the beat with your hand or whole body."
+          ? `Play the beat of ${getCurrentSongAsset().title} with your hand or whole body.`
           : "Motion mode is live. Move side to side, then swipe to strum.",
       );
     } catch {
@@ -1674,13 +1885,26 @@ export default function Home() {
       setTrackerStatus("error");
       setCameraControlMode("none");
       setSetupError(
-        "Camera access failed or was blocked. Allow camera permission, then try again. You can still use fallback mode below.",
+        "Camera access failed or was blocked. Allow camera permission, then try again.",
       );
-      setTrackerMessage(
-        "Camera mode is unavailable until permission is granted.",
-      );
+      setTrackerMessage("Camera mode is unavailable until permission is granted.");
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const generateSongAndStartCamera = async () => {
+    try {
+      const currentSignature = JSON.stringify(songForm);
+      if (
+        !getCurrentSongAsset().generated ||
+        generatedSongSignatureRef.current !== currentSignature
+      ) {
+        await generateSongAsset();
+      }
+      await startCameraMode();
+    } catch {
+      // Error state is already shown in the launch panel.
     }
   };
 
@@ -1781,8 +2005,8 @@ export default function Home() {
     hitLane(lane);
   });
 
-  const primeProvidedSongChart = useEffectEvent(async () => {
-    const chart = await loadProvidedSongChart();
+  const primeCurrentSongChart = useEffectEvent(async () => {
+    const chart = await loadCurrentSongChart();
     if (gameStateRef.current.mode === "intro") {
       gameStateRef.current = createGameState(chart);
       drawScene();
@@ -1802,7 +2026,7 @@ export default function Home() {
   });
 
   useEffect(() => {
-    void primeProvidedSongChart();
+    void primeCurrentSongChart();
   }, []);
 
   useEffect(() => {
@@ -1815,6 +2039,10 @@ export default function Home() {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
       const key = event.key.toLowerCase();
 
       if (key in KEY_TO_LANE) {
@@ -2048,24 +2276,116 @@ export default function Home() {
 
       {isIntro ? (
         <section className="overlay launch-panel">
-          <p className="eyebrow">camera game</p>
+          <p className="eyebrow">make your song</p>
           <h1>Air Guitar Hero</h1>
           <p className="launch-copy">
-            Wave your hand, follow the lights, and play along with <strong>Sample Music 1</strong>.
+            Build a beat-heavy song, then use your camera to play it like a mini Guitar Hero show.
           </p>
           <div className="launch-badges">
-            <p className="launch-badge">Move your hand</p>
+            <p className="launch-badge">Beat-ready music</p>
+            <p className="launch-badge">Camera only</p>
             <p className="launch-badge">Pinch to strum</p>
-            <p className="launch-badge">Play the beat</p>
+          </div>
+          <div className="song-maker">
+            <div className="song-maker-grid">
+              <label className="song-field">
+                <span>Style</span>
+                <select
+                  value={songForm.style}
+                  onChange={(event) =>
+                    updateSongForm("style", event.target.value as SongFormState["style"])
+                  }
+                >
+                  {STYLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="song-field">
+                <span>Mood</span>
+                <select
+                  value={songForm.mood}
+                  onChange={(event) =>
+                    updateSongForm("mood", event.target.value as SongFormState["mood"])
+                  }
+                >
+                  {MOOD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="song-field">
+                <span>Energy</span>
+                <select
+                  value={songForm.energy}
+                  onChange={(event) =>
+                    updateSongForm("energy", event.target.value as SongFormState["energy"])
+                  }
+                >
+                  {ENERGY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="song-field">
+                <span>Beat</span>
+                <select
+                  value={songForm.beat}
+                  onChange={(event) =>
+                    updateSongForm("beat", event.target.value as SongFormState["beat"])
+                  }
+                >
+                  {BEAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="song-field song-field-textarea">
+              <span>Extra idea</span>
+              <textarea
+                value={songForm.details}
+                onChange={(event) => updateSongForm("details", event.target.value)}
+                maxLength={180}
+                placeholder="space lasers, superhero finish, sparkly synths..."
+              />
+            </label>
+            <div className="song-preview">
+              <p className="song-preview-label">Current track</p>
+              <p className="song-preview-title">{currentSongLabel}</p>
+              <p className="song-preview-copy">{currentSongSummary}</p>
+              {currentSongLyrics.length > 0 ? (
+                <div className="lyrics-preview">
+                  <p className="song-preview-label">Lyrics preview</p>
+                  {currentSongLyrics.slice(0, 3).map((line) => (
+                    <p key={line} className="lyrics-line">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="launch-actions">
             <button
               id="start-btn"
               type="button"
-              onClick={() => void startCameraMode()}
-              disabled={isStarting}
+              onClick={() => void generateSongAndStartCamera()}
+              disabled={isStarting || isGeneratingSong}
             >
-              {isStarting ? "Starting..." : "Start Camera Game"}
+              {isGeneratingSong
+                ? "Making Song..."
+                : isStarting
+                  ? "Starting Camera..."
+                  : "Make Song And Start Camera"}
             </button>
             <button
               id="fallback-btn"
@@ -2081,7 +2401,11 @@ export default function Home() {
           </div>
           <div className="launch-status">
             <p className="status-pill">camera {cameraState}</p>
+            <p className="status-pill">
+              {getCurrentSongAsset().generated ? "custom song ready" : "sample song loaded"}
+            </p>
           </div>
+          {songGenerationError ? <p className="error-copy">{songGenerationError}</p> : null}
           {setupError ? <p className="error-copy">{setupError}</p> : null}
         </section>
       ) : null}
