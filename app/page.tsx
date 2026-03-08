@@ -1604,33 +1604,6 @@ export default function Home() {
     ctx.shadowBlur = 0;
     ctx.restore();
 
-    if (state.mode === "intro") {
-      const panelWidth = 280;
-      const panelHeight = 126;
-      const panelX = width * 0.48;
-      const panelY = height * 0.08;
-
-      ctx.save();
-      drawRoundedRect(ctx, panelX, panelY, panelWidth, panelHeight, 28);
-      const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX + panelWidth, panelY + panelHeight);
-      panelGradient.addColorStop(0, "rgba(95, 192, 255, 0.78)");
-      panelGradient.addColorStop(1, "rgba(255, 198, 110, 0.72)");
-      ctx.fillStyle = panelGradient;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.34)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 28px var(--font-geist-sans)";
-      ctx.fillText("Wave to play!", panelX + 22, panelY + 42);
-      ctx.font = "600 16px var(--font-geist-sans)";
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
-      ctx.fillText("Use your camera hand to follow the beat.", panelX + 22, panelY + 72);
-      drawStatusChip(ctx, panelX + 22, panelY + 88, `CAMERA ${cameraStateRef.current}`);
-      ctx.restore();
-    }
-
     if (state.mode === "playing" && state.songTime < SONG_LEAD_IN) {
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffffff";
