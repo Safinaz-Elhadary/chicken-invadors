@@ -149,27 +149,6 @@ const DEFAULT_SONG_FORM: SongFormState = {
   beat: "steady",
   details: "",
 };
-const STYLE_OPTIONS = [
-  { value: "dance-pop", label: "Dance Pop" },
-  { value: "electro-rock", label: "Electro Rock" },
-  { value: "arcade-funk", label: "Arcade Funk" },
-  { value: "power-pop", label: "Power Pop" },
-] as const;
-const MOOD_OPTIONS = [
-  { value: "happy", label: "Happy" },
-  { value: "epic", label: "Epic" },
-  { value: "space", label: "Space" },
-  { value: "bold", label: "Bold" },
-] as const;
-const ENERGY_OPTIONS = [
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-] as const;
-const BEAT_OPTIONS = [
-  { value: "steady", label: "Steady" },
-  { value: "bouncy", label: "Bouncy" },
-  { value: "turbo", label: "Turbo" },
-] as const;
 
 const CHORD_LIBRARY = [
   [196, 246.94, 293.66],
@@ -2278,79 +2257,9 @@ export default function Home() {
         <section className="overlay launch-panel">
           <p className="eyebrow">make your song</p>
           <h1>Air Guitar Hero</h1>
-          <p className="launch-copy">
-            Build a beat-heavy song, then use your camera to play it like a mini Guitar Hero show.
-          </p>
-          <div className="launch-badges">
-            <p className="launch-badge">Beat-ready music</p>
-            <p className="launch-badge">Camera only</p>
-            <p className="launch-badge">Pinch to strum</p>
-          </div>
           <div className="song-maker">
-            <div className="song-maker-grid">
-              <label className="song-field">
-                <span>Style</span>
-                <select
-                  value={songForm.style}
-                  onChange={(event) =>
-                    updateSongForm("style", event.target.value as SongFormState["style"])
-                  }
-                >
-                  {STYLE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="song-field">
-                <span>Mood</span>
-                <select
-                  value={songForm.mood}
-                  onChange={(event) =>
-                    updateSongForm("mood", event.target.value as SongFormState["mood"])
-                  }
-                >
-                  {MOOD_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="song-field">
-                <span>Energy</span>
-                <select
-                  value={songForm.energy}
-                  onChange={(event) =>
-                    updateSongForm("energy", event.target.value as SongFormState["energy"])
-                  }
-                >
-                  {ENERGY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="song-field">
-                <span>Beat</span>
-                <select
-                  value={songForm.beat}
-                  onChange={(event) =>
-                    updateSongForm("beat", event.target.value as SongFormState["beat"])
-                  }
-                >
-                  {BEAT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
             <label className="song-field song-field-textarea">
-              <span>Extra idea</span>
+              <span>Idea</span>
               <textarea
                 value={songForm.details}
                 onChange={(event) => updateSongForm("details", event.target.value)}
